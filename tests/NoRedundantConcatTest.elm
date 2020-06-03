@@ -64,7 +64,77 @@ a = [ foo ] ++ [ bar ]
 a = [foo, bar]
 """
                         ]
+        , test "List.concat of literal lists can be single list" <|
+            \_ ->
+                """module A exposing (..)
+
+a = List.concat [ [ a ], [ b ] ]
+"""
+                    |> Review.Test.run NoRedundantConcat.rule
+                    |> Review.Test.expectErrors
+                        [ redundantListConcatError
+                            """List.concat [ [ a ], [ b ] ]"""
+                            |> Review.Test.whenFixed
+                                """module A exposing (..)
+
+a = [a, b]
+"""
+                        ]
+        , test "List.concat of multiple literal lists can be single list" <|
+            \_ ->
+                """module A exposing (..)
+
+a = List.concat [ [ a, b ], [ c, d ], [ e, f ] ]
+"""
+                    |> Review.Test.run NoRedundantConcat.rule
+                    |> Review.Test.expectErrors
+                        [ redundantListConcatError
+                            """List.concat [ [ a, b ], [ c, d ], [ e, f ] ]"""
+                            |> Review.Test.whenFixed
+                                """module A exposing (..)
+
+a = [a, b, c, d, e, f]
+"""
+                        ]
+        , test "Concatenation of literal strings can be single string" <|
+            \_ ->
+                """module A exposing (..)
+
+a = "hello" ++ " world"
+"""
+                    |> Review.Test.run NoRedundantConcat.rule
+                    |> Review.Test.expectErrors
+                        [ redundantStringConcatError
+                            """"hello" ++ " world\""""
+                            |> Review.Test.whenFixed
+                                """module A exposing (..)
+
+a = "hello world"
+"""
+                        ]
         ]
+
+
+redundantStringConcatError : String -> Review.Test.ExpectedError
+redundantStringConcatError under =
+    Review.Test.error
+        { message = "Concatenating a literal string with another literal string is redundant"
+        , details =
+            [ "Expressions like `\"foo\" ++ \"bar\"` are harder to read than `\"foobar\"`. Consider simplifying this expression."
+            ]
+        , under = under
+        }
+
+
+redundantListConcatError : String -> Review.Test.ExpectedError
+redundantListConcatError under =
+    Review.Test.error
+        { message = "Using List.concat to concatenate list literals is redundant"
+        , details =
+            [ "Rather than using `List.concat`, consider putting the elements into a single list literal"
+            ]
+        , under = under
+        }
 
 
 useConsError : String -> Review.Test.ExpectedError
